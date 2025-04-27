@@ -1,0 +1,38 @@
+name: Deploy Reacts App to EC2
+
+on:
+  push:
+    branches:
+      - main  # Le workflow se déclenche uniquement sur la branche 'main'
+
+jobs:
+  deploy:
+    name: Deploy on EC2
+    runs-on: ubuntu-latest  # Exécuter le job sur un environnement Ubuntu
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3  # Récupérer le code depuis le dépôt GitHub
+
+      - name: Update system packages
+        run: sudo apt-get update  # Met à jour les paquets système
+
+      - name: Install SSH client
+        run: sudo apt-get install -y openssh-client  # Installer le client SSH
+
+      - name: Set up SSH key and known hosts
+        run: |
+          mkdir -p ~/.ssh  # Créer le répertoire .ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 --decode > ~/.ssh/id_rsa  # Décode la clé privée et la place dans id_rsa
+          chmod 600 ~/.ssh/id_rsa  # Modifier les permissions pour que la clé soit privée
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts  # Ajouter l'hôte EC2 aux hosts connus pour éviter les avertissements
+
+      - name: Connect to EC2 and pull the latest code
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            cd ${{ secrets.WORK_DIR }}  # Accéder au répertoire de l'application sur EC2
+            git pull origin ${{ secrets.MAIN_BRANCH }}  # Effectuer un git pull sur la branche 'main' pour récupérer la dernière version
+          EOF
+
+      - name: Clean up SSH keys
+        run: rm -rf ~/.ssh  # Supprimer le répertoire .ssh après utilisation pour des raisons de sécurité
