@@ -5,7 +5,7 @@ services:
   react-app:
     build: .
     ports:
-      - "3000:3000"
+      - "5000:5000"
     volumes:
       # 1) Monte tout le projet hôte (incluant node_modules existant) dans /app
       - .:/app
