@@ -30,7 +30,7 @@ jobs:
           MAIN_BRANCH: ${{ secrets.MAIN_BRANCH }}
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-            cd "$WORK_DIR"                                   # Se placer dans le répertoire du projet
+            cd "$WORK_DIR"                                    # Se placer dans le répertoire du projet
             git pull origin "$MAIN_BRANCH"                    # 1) Pull de la dernière version
             docker-compose down --remove-orphans              # 2) Arrêt des services existants
             docker-compose rm -f                              # 3) Suppression des conteneurs
