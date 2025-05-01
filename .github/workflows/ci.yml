@@ -1,38 +1,42 @@
-name: Deploy Reacts App to EC2
+name: Deploy React App to EC2 via Docker
 
 on:
   push:
     branches:
-      - main  # Le workflow se déclenche uniquement sur la branche 'main'
+      - main
 
 jobs:
   deploy:
-    name: Deploy on EC2
-    runs-on: ubuntu-latest  # Exécuter le job sur un environnement Ubuntu
+    name: Deploy on EC2 with Docker
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3  # Récupérer le code depuis le dépôt GitHub
-
-      - name: Update system packages
-        run: sudo apt-get update  # Met à jour les paquets système
+        uses: actions/checkout@v3  # Récupère le code source
 
       - name: Install SSH client
-        run: sudo apt-get install -y openssh-client  # Installer le client SSH
+        run: sudo apt-get update && sudo apt-get install -y openssh-client  # Prépare SSH
 
       - name: Set up SSH key and known hosts
         run: |
-          mkdir -p ~/.ssh  # Créer le répertoire .ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 --decode > ~/.ssh/id_rsa  # Décode la clé privée et la place dans id_rsa
-          chmod 600 ~/.ssh/id_rsa  # Modifier les permissions pour que la clé soit privée
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts  # Ajouter l'hôte EC2 aux hosts connus pour éviter les avertissements
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 --decode > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Connect to EC2 and pull the latest code
+      - name: Deploy via SSH
+        env:
+          WORK_DIR: ${{ secrets.WORK_DIR }}   # ex: /home/level3/ReactJs
+          MAIN_BRANCH: ${{ secrets.MAIN_BRANCH }}
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-            cd ${{ secrets.WORK_DIR }}  # Accéder au répertoire de l'application sur EC2
-            git pull origin ${{ secrets.MAIN_BRANCH }}  # Effectuer un git pull sur la branche 'main' pour récupérer la dernière version
+            cd "$WORK_DIR"                                   # Se placer dans le répertoire du projet
+            git pull origin "$MAIN_BRANCH"                    # 1) Pull de la dernière version
+            docker-compose down --remove-orphans              # 2) Arrêt des services existants
+            docker-compose rm -f                              # 3) Suppression des conteneurs
+            docker image prune -af                            # 4) Suppression des images orphelines
+            docker-compose up -d --build                      # 5) Reconstruction et démarrage
           EOF
 
       - name: Clean up SSH keys
-        run: rm -rf ~/.ssh  # Supprimer le répertoire .ssh après utilisation pour des raisons de sécurité
+        run: rm -rf ~/.ssh  # Supprime le dossier SSH pour la sécurité
