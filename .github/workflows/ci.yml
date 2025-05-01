@@ -12,10 +12,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v3  # Récupère le code source
 
       - name: Install SSH client
-        run: sudo apt-get update && sudo apt-get install -y openssh-client
+        run: sudo apt-get update && sudo apt-get install -y openssh-client  # Prépare SSH
 
       - name: Set up SSH key and known hosts
         run: |
@@ -26,27 +26,34 @@ jobs:
 
       - name: Deploy via SSH
         env:
-          WORK_DIR: ${{ secrets.WORK_DIR }}
+          WORK_DIR: ${{ secrets.WORK_DIR }}   # ex: /home/level3/ReactJs
           MAIN_BRANCH: ${{ secrets.MAIN_BRANCH }}
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             set -e
-            cd "$WORK_DIR"
+            cd "$WORK_DIR"  # Se placer dans le répertoire du projet
+
+            # Vérifier si le répertoire est un dépôt Git
+            if [ ! -d ".git" ]; then
+              echo "Le répertoire $WORK_DIR n'est pas un dépôt Git. Veuillez vérifier le chemin."
+              exit 1
+            fi
+
             echo "Pulling latest code..."
-            git pull origin "$MAIN_BRANCH"
+            git pull origin "$MAIN_BRANCH"  # 1) Pull de la dernière version
 
             echo "Stopping containers..."
-            docker-compose -f docker-compose.yaml down --remove-orphans
+            docker-compose -f docker-compose.yaml down --remove-orphans  # 2) Arrêt des services existants
 
             echo "Removing containers..."
-            docker-compose -f docker-compose.yaml rm -f
+            docker-compose -f docker-compose.yaml rm -f  # 3) Suppression des conteneurs
 
             echo "Removing unused images..."
-            docker image prune -af
+            docker image prune -af  # 4) Suppression des images orphelines
 
             echo "Rebuilding and starting containers..."
-            docker-compose -f docker-compose.yaml up -d --build
+            docker-compose -f docker-compose.yaml up -d --build  # 5) Reconstruction et démarrage
           EOF
 
       - name: Clean up SSH keys
-        run: rm -rf ~/.ssh
+        run: rm -rf ~/.ssh  # Supprime le dossier SSH pour la sécurité
